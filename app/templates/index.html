@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>The space of hua</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+
+        .triangle-button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .wheel-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%; /* 使容器宽度充满父容器 */
+            max-width: 300px; /* 设置最大宽度，可以根据需要调整 */
+        }
+
+        .wheel {
+            max-width: 100%; /* 确保图像宽度不会超出容器 */
+            height: auto; /* 根据图像比例自动调整高度 */
+        }
+
+        body {
+            background-color: #f2f2f2;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+
+        .input-group input[type="submit"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #56ac58;
+            color: #ffffff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        /* 移除按钮的内容 */
+        .triangle-button {
+            background-color: #3498db;
+            padding: 0; /* 移除内边距 */
+            border: none;
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 35px solid #3498db;
+            font-size: 0; /* 移除字体大小 */
+            cursor: pointer;
+            position: relative;
+        }
+
+    </style>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h2>花花公子</h2>
+        <button id="recordBtn">点击说话</button>
+        <button id="saveBtn">完成</button>
+        <button id="transcribe">提取</button>
+        <button id="translate">翻译</button>
+        <form action="/send" method="post">
+            <div class="input-group">
+                <input type="text" name="message" placeholder="输入信息" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <input type="submit" value="发送">
+            </div>
+        </form>
+        <textarea id="output" rows="10" cols="50" readonly></textarea>
+       
+        
+        <div class="container">
+            <div class="wheel-container">
+                <img src="{{ image_url }}" id="wheel" class="wheel" alt="转盘">
+            </div>
+            <button id="startButton" class="triangle-button"></button>
+        </div>
+        <script src="script.js"></script>
+    </div>
+
+    <script>
+        var recordBtn = document.getElementById('recordBtn');
+        var saveBtn = document.getElementById('saveBtn');
+        var transcribeBtn = document.getElementById('transcribe');
+        var translateBtn = document.getElementById('translate');
+        var output = document.getElementById('output');
+        var recordedChunks = [];
+
+        var mediaRecorder;
+
+        const startButton = document.getElementById("startButton");
+        const wheel = document.getElementById("wheel");
+        let isAnimationInProgress = false;
+
+        startButton.addEventListener("click", () => {
+        // Disable button during animation
+        startButton.disabled = true;
+
+        if (!isAnimationInProgress) {
+            isAnimationInProgress = true;
+
+            // Reset the wheel's transform and transition
+            wheel.style.transition = "";
+            wheel.style.transform = "rotate(0deg)";
+
+            // Generate a random angle between 720 and 1440 degrees (2 to 4 full rotations)
+            const randomAngle = Math.random() * (1440 - 720) + 720;
+
+            // Calculate a shorter duration for faster rotation (e.g., 2 seconds)
+            const duration = 2; // Adjust this value to your desired speed
+
+            // Rotate the wheel using CSS transform with the new duration
+            setTimeout(() => {
+                wheel.style.transition = `transform ${duration}s ease-in-out`;
+                wheel.style.transform = `rotate(${randomAngle}deg)`;
+            }, 10); // Delay the rotation slightly to ensure the reset takes effect
+
+            // Enable the button after 3 to 5 seconds
+            setTimeout(() => {
+                startButton.disabled = false;
+                isAnimationInProgress = false;
+            }, Math.random() * 2000 + 3000);
+
+
+        }
+    });
+
+
+        // 开始录音
+        recordBtn.addEventListener('click', function () {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function (stream) {
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    mediaRecorder.addEventListener('dataavailable', function (event) {
+                        recordedChunks.push(event.data);
+                    });
+
+                    mediaRecorder.start();
+                    recordBtn.disabled = true;
+                })
+                .catch(function (error) {
+                    console.log('无法访问麦克风:', error);
+                });
+        });
+
+        // 停止录音并保存
+        saveBtn.addEventListener('click', function () {
+            mediaRecorder.stop();
+            recordBtn.disabled = false;
+
+            mediaRecorder.addEventListener('stop', function () {
+                var blob = new Blob(recordedChunks, { type: 'audio/mp3' });
+                var formData = new FormData();
+                formData.append('audio_data', blob, 'recorded_audio.mp3');
+
+                fetch('/record', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(function (response) {
+                        console.log('录音已保存');
+                    })
+                    .catch(function (error) {
+                        console.log('保存录音时发生错误:', error);
+                    });
+
+                recordedChunks = [];
+            });
+        });
+
+        // 提取录音文本
+        transcribeBtn.addEventListener('click', function () {
+            fetch('/transcribe', {
+                method: 'POST'
+            })
+                .then(function (response) {
+                    return response.text();
+                })
+                .then(function (transcript) {
+                    output.value = transcript;
+                })
+                .catch(function (error) {
+                    console.log('请求错误:', error);
+                });
+        });
+
+        // 翻译文本
+        translateBtn.addEventListener('click', function () {
+            fetch('/translate', {
+                method: 'POST'
+            })
+                .then(function (response) {
+                    return response.text();
+                })
+                .then(function (translate) {
+                    output.value = "Translate: " + translate;
+                })
+                .catch(function (error) {
+                    console.log('请求错误:', error);
+                });
+        });
+
+        // 显示生成的文本
+        function displayGeneratedText(generatedText) {
+            output.value = generatedText;
+        }
+
+        // 提交表单并处理响应
+        var form = document.querySelector('form');
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var formData = new FormData(form);
+
+            fetch('/send', {
+                method: 'POST',
+                body: formData
+            })
+                .then(function (response) {
+                    return response.text();
+                })
+                .then(function (generatedText) {
+                    displayGeneratedText(generatedText);
+                })
+                .catch(function (error) {
+                    console.log('请求错误:', error);
+                });
+        });
+
+    </script>
+</body>
+</html>
