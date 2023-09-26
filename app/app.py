@@ -98,10 +98,8 @@ async def send_http_request(timestamp, your_qus):
             result = response.json()["choices"][0]["text"]
             print(result)
             generated_text = result
-            print('成功....222')
             print(pubkey)
             get_pubkey()
-            print('成功....333')
             print(pubkey)
             # 在这里可以对result进行进一步处理
         except Exception as e:
